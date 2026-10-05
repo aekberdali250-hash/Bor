@@ -5,105 +5,66 @@ const { Pool } = require("pg");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// =========================
-// Middleware
-// =========================
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// =========================
-// PostgreSQL
-// =========================
+app.use(express.static(__dirname));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
-
-pool.on("error", (err) => {
-  console.error("PostgreSQL error:", err);
+  ssl: { rejectUnauthorized: false }
 });
 
 // =========================
-// Database initialization
+// Database
 // =========================
-
 async function initDatabase() {
+  const client = await pool.connect();
+
   try {
-
-    // الشركات
-    await pool.query(`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS companies (
-        id BIGSERIAL PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
-        type TEXT NOT NULL DEFAULT 'Offerwall',
-        status BOOLEAN NOT NULL DEFAULT TRUE,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        type TEXT NOT NULL,
+        status BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    `);
 
-    // المستخدمون
-    await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id BIGSERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        points INTEGER NOT NULL DEFAULT 0,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        points INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-    `);
 
-    // معاملات المكافآت
-    await pool.query(`
       CREATE TABLE IF NOT EXISTS transactions (
-        id BIGSERIAL PRIMARY KEY,
-
-        user_id BIGINT NOT NULL
-          REFERENCES users(id)
-          ON DELETE CASCADE,
-
-        company_id BIGINT
-          REFERENCES companies(id)
-          ON DELETE SET NULL,
-
-        transaction_id TEXT UNIQUE,
-
-        type TEXT NOT NULL DEFAULT 'reward',
-
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        company_id INTEGER REFERENCES companies(id),
         points INTEGER NOT NULL,
-
+        transaction_id TEXT UNIQUE,
         description TEXT,
-
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    // إضافة AdGem إذا لم تكن موجودة
-    await pool.query(`
+    await client.query(`
       INSERT INTO companies (name, type, status)
       SELECT 'AdGem', 'Offerwall', TRUE
       WHERE NOT EXISTS (
-        SELECT 1
-        FROM companies
-        WHERE name = 'AdGem'
+        SELECT 1 FROM companies WHERE name = 'AdGem'
       );
     `);
 
-    console.log("PostgreSQL connected");
     console.log("Database tables ready");
-
-  } catch (error) {
-    console.error("Database initialization error:", error);
+  } finally {
+    client.release();
   }
 }
 
 // =========================
 // Pages
 // =========================
-
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
@@ -119,633 +80,382 @@ app.get("/admin.html", (req, res) => {
 // =========================
 // Health
 // =========================
-
 app.get("/api/health", async (req, res) => {
   try {
-
-    await pool.query("SELECT NOW()");
+    await pool.query("SELECT 1");
 
     res.json({
       ok: true,
       service: "reward-app",
       database: "connected"
     });
-
   } catch (error) {
-
-    console.error(error);
-
     res.status(500).json({
       ok: false,
+      service: "reward-app",
       database: "error"
     });
-
   }
 });
 
 // =========================
 // Companies
 // =========================
-
 app.get("/api/companies", async (req, res) => {
-
   try {
-
-    const result = await pool.query(`
-      SELECT id, name, type, status
-      FROM companies
-      ORDER BY id ASC
-    `);
+    const result = await pool.query(
+      "SELECT * FROM companies ORDER BY id"
+    );
 
     res.json(result.rows);
-
   } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      error: "Database error"
-    });
-
+    res.status(500).json({ error: error.message });
   }
-
 });
 
 app.post("/api/companies", async (req, res) => {
-
   try {
-
     const { name, type } = req.body;
 
-    if (!name) {
+    if (!name || !type) {
       return res.status(400).json({
-        error: "name is required"
+        error: "name and type are required"
       });
     }
 
     const result = await pool.query(
-      `
-      INSERT INTO companies (name, type, status)
-      VALUES ($1, $2, TRUE)
-      RETURNING id, name, type, status
-      `,
-      [
-        name,
-        type || "Offerwall"
-      ]
+      `INSERT INTO companies (name, type)
+       VALUES ($1, $2)
+       RETURNING *`,
+      [name, type]
     );
 
-    res.status(201).json(result.rows[0]);
-
+    res.json(result.rows[0]);
   } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      error: "Database error"
-    });
-
+    res.status(500).json({ error: error.message });
   }
-
 });
 
 // =========================
 // Users
 // =========================
-
 app.get("/api/users", async (req, res) => {
-
   try {
-
-    const result = await pool.query(`
-      SELECT
-        id,
-        name,
-        email,
-        points,
-        created_at
-      FROM users
-      ORDER BY id DESC
-    `);
+    const result = await pool.query(
+      "SELECT * FROM users ORDER BY id DESC"
+    );
 
     res.json(result.rows);
-
   } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      error: "Database error"
-    });
-
+    res.status(500).json({ error: error.message });
   }
-
 });
 
 app.post("/api/users", async (req, res) => {
-
   try {
+    const { email } = req.body;
 
-    const { name, email } = req.body;
-
-    if (!name || !email) {
-
+    if (!email) {
       return res.status(400).json({
-        error: "name and email are required"
+        error: "email is required"
       });
-
     }
 
     const result = await pool.query(
-      `
-      INSERT INTO users
-        (name, email, points)
-      VALUES
-        ($1, $2, 0)
-      RETURNING
-        id,
-        name,
-        email,
-        points,
-        created_at
-      `,
-      [
-        name,
-        email
-      ]
+      `INSERT INTO users (email)
+       VALUES ($1)
+       ON CONFLICT (email)
+       DO UPDATE SET email = EXCLUDED.email
+       RETURNING *`,
+      [email]
     );
 
-    res.status(201).json(result.rows[0]);
-
+    res.json(result.rows[0]);
   } catch (error) {
-
-    console.error(error);
-
-    if (error.code === "23505") {
-
-      return res.status(409).json({
-        error: "email already exists"
-      });
-
-    }
-
-    res.status(500).json({
-      error: "Database error"
-    });
-
+    res.status(500).json({ error: error.message });
   }
-
 });
 
-// =========================
-// User balance
-// =========================
-
 app.get("/api/users/:id", async (req, res) => {
-
   try {
-
-    const userId = Number(req.params.id);
-
-    if (!Number.isInteger(userId)) {
-
-      return res.status(400).json({
-        error: "invalid user id"
-      });
-
-    }
-
     const result = await pool.query(
-      `
-      SELECT
-        id,
-        name,
-        email,
-        points,
-        created_at
-      FROM users
-      WHERE id = $1
-      `,
-      [userId]
+      "SELECT * FROM users WHERE id = $1",
+      [req.params.id]
     );
 
     if (result.rows.length === 0) {
-
       return res.status(404).json({
         error: "user not found"
       });
-
     }
 
     res.json(result.rows[0]);
-
   } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      error: "Database error"
-    });
-
+    res.status(500).json({ error: error.message });
   }
-
 });
 
 // =========================
 // Add reward
 // =========================
-//
-// هذه النقطة مهمة:
-// transaction_id يمنع احتساب نفس العملية مرتين.
-//
-
 app.post("/api/rewards", async (req, res) => {
-
   const client = await pool.connect();
 
   try {
-
     const {
       user_id,
+      points,
       company_id,
       transaction_id,
-      points,
       description
     } = req.body;
 
-    if (!user_id || !points) {
-
-      client.release();
-
+    if (!user_id || !points || points <= 0) {
       return res.status(400).json({
-        error: "user_id and points are required"
+        error: "user_id and positive points are required"
       });
-
-    }
-
-    const userId = Number(user_id);
-    const companyId = company_id ? Number(company_id) : null;
-    const rewardPoints = Number(points);
-
-    if (
-      !Number.isInteger(userId) ||
-      !Number.isInteger(rewardPoints) ||
-      rewardPoints <= 0
-    ) {
-
-      client.release();
-
-      return res.status(400).json({
-        error: "invalid user_id or points"
-      });
-
     }
 
     await client.query("BEGIN");
 
-    // التأكد أن المستخدم موجود
-    const userResult = await client.query(
-      `
-      SELECT id, points
-      FROM users
-      WHERE id = $1
-      FOR UPDATE
-      `,
-      [userId]
+    const user = await client.query(
+      "SELECT * FROM users WHERE id = $1 FOR UPDATE",
+      [user_id]
     );
 
-    if (userResult.rows.length === 0) {
-
+    if (user.rows.length === 0) {
       await client.query("ROLLBACK");
 
       return res.status(404).json({
         error: "user not found"
       });
-
     }
 
-    // منع تكرار العملية
-    if (transaction_id) {
-
-      const existing = await client.query(
-        `
-        SELECT id
-        FROM transactions
-        WHERE transaction_id = $1
-        `,
-        [transaction_id]
-      );
-
-      if (existing.rows.length > 0) {
-
-        await client.query("ROLLBACK");
-
-        return res.status(409).json({
-          error: "transaction already processed"
-        });
-
-      }
-
-    }
-
-    // إضافة العملية
-    const transactionResult = await client.query(
-      `
-      INSERT INTO transactions
-        (
-          user_id,
-          company_id,
-          transaction_id,
-          type,
-          points,
-          description
-        )
-      VALUES
-        (
-          $1,
-          $2,
-          $3,
-          'reward',
-          $4,
-          $5
-        )
-      RETURNING *
-      `,
+    const transaction = await client.query(
+      `INSERT INTO transactions
+       (user_id, company_id, points, transaction_id, description)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
       [
-        userId,
-        companyId,
+        user_id,
+        company_id || null,
+        points,
         transaction_id || null,
-        rewardPoints,
-        description || "Reward"
+        description || null
       ]
     );
 
-    // إضافة النقاط للمستخدم
-    const updateResult = await client.query(
-      `
-      UPDATE users
-      SET points = points + $1
-      WHERE id = $2
-      RETURNING id, name, email, points
-      `,
-      [
-        rewardPoints,
-        userId
-      ]
+    const updatedUser = await client.query(
+      `UPDATE users
+       SET points = points + $1
+       WHERE id = $2
+       RETURNING *`,
+      [points, user_id]
     );
 
     await client.query("COMMIT");
 
-    res.status(201).json({
+    res.json({
       success: true,
-      transaction: transactionResult.rows[0],
-      user: updateResult.rows[0]
+      transaction: transaction.rows[0],
+      user: updatedUser.rows[0]
     });
 
   } catch (error) {
-
     try {
       await client.query("ROLLBACK");
-    } catch (_) {}
-
-    console.error(error);
-
-    // transaction_id مكرر
-    if (error.code === "23505") {
-
-      return res.status(409).json({
-        error: "transaction already processed"
-      });
-
-    }
+    } catch {}
 
     res.status(500).json({
-      error: "Database error"
+      error: error.message
     });
 
   } finally {
-
     client.release();
-
   }
-
 });
 
-// =========================
-// User transactions
-// =========================
-
-app.get("/api/users/:id/transactions", async (req, res) => {
+// ==================================================
+// TEMPORARY TEST ROUTE
+// DELETE THIS ROUTE AFTER TESTING
+// ==================================================
+app.get("/test-reward/:userId/:points", async (req, res) => {
+  const client = await pool.connect();
 
   try {
+    const userId = Number(req.params.userId);
+    const points = Number(req.params.points);
 
-    const userId = Number(req.params.id);
-
-    if (!Number.isInteger(userId)) {
-
+    if (!Number.isInteger(userId) || !Number.isInteger(points) || points <= 0) {
       return res.status(400).json({
-        error: "invalid user id"
+        error: "Invalid userId or points"
       });
-
     }
 
-    const result = await pool.query(
-      `
-      SELECT
-        t.id,
-        t.transaction_id,
-        t.type,
-        t.points,
-        t.description,
-        t.created_at,
+    await client.query("BEGIN");
 
-        c.name AS company_name
-
-      FROM transactions t
-
-      LEFT JOIN companies c
-        ON c.id = t.company_id
-
-      WHERE t.user_id = $1
-
-      ORDER BY t.id DESC
-      `,
+    const user = await client.query(
+      "SELECT * FROM users WHERE id = $1 FOR UPDATE",
       [userId]
     );
 
-    res.json(result.rows);
+    if (user.rows.length === 0) {
+      await client.query("ROLLBACK");
 
-  } catch (error) {
+      return res.status(404).json({
+        error: "user not found"
+      });
+    }
 
-    console.error(error);
+    const transaction = await client.query(
+      `INSERT INTO transactions
+       (user_id, points, description)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [
+        userId,
+        points,
+        "Temporary test reward"
+      ]
+    );
 
-    res.status(500).json({
-      error: "Database error"
+    const updatedUser = await client.query(
+      `UPDATE users
+       SET points = points + $1
+       WHERE id = $2
+       RETURNING *`,
+      [points, userId]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      message: "Temporary test reward added",
+      transaction: transaction.rows[0],
+      user: updatedUser.rows[0]
     });
 
-  }
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {}
 
+    res.status(500).json({
+      error: error.message
+    });
+
+  } finally {
+    client.release();
+  }
 });
 
 // =========================
-// All transactions
+// Transactions
 // =========================
-
-app.get("/api/transactions", async (req, res) => {
-
+app.get("/api/users/:id/transactions", async (req, res) => {
   try {
-
-    const result = await pool.query(`
-      SELECT
-
-        t.id,
-        t.transaction_id,
-        t.type,
-        t.points,
-        t.description,
-        t.created_at,
-
-        u.id AS user_id,
-        u.name AS user_name,
-        u.email AS user_email,
-
-        c.name AS company_name
-
-      FROM transactions t
-
-      LEFT JOIN users u
-        ON u.id = t.user_id
-
-      LEFT JOIN companies c
-        ON c.id = t.company_id
-
-      ORDER BY t.id DESC
-    `);
+    const result = await pool.query(
+      `SELECT *
+       FROM transactions
+       WHERE user_id = $1
+       ORDER BY id DESC`,
+      [req.params.id]
+    );
 
     res.json(result.rows);
-
   } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      error: "Database error"
-    });
-
+    res.status(500).json({ error: error.message });
   }
+});
 
+app.get("/api/transactions", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT *
+       FROM transactions
+       ORDER BY id DESC`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // =========================
 // Statistics
 // =========================
-
 app.get("/api/stats", async (req, res) => {
-
   try {
-
-    const usersResult = await pool.query(
-      `
-      SELECT COUNT(*)::int AS count
-      FROM users
-      `
+    const users = await pool.query(
+      "SELECT COUNT(*) FROM users"
     );
 
-    const companiesResult = await pool.query(
-      `
-      SELECT COUNT(*)::int AS count
-      FROM companies
-      `
+    const companies = await pool.query(
+      "SELECT COUNT(*) FROM companies"
     );
 
-    const pointsResult = await pool.query(
-      `
-      SELECT COALESCE(SUM(points), 0)::int AS total
-      FROM users
-      `
+    const points = await pool.query(
+      "SELECT COALESCE(SUM(points), 0) AS total FROM users"
     );
 
-    const transactionsResult = await pool.query(
-      `
-      SELECT COUNT(*)::int AS count
-      FROM transactions
-      `
+    const transactions = await pool.query(
+      "SELECT COUNT(*) FROM transactions"
     );
 
     res.json({
-
-      users: usersResult.rows[0].count,
-
-      companies: companiesResult.rows[0].count,
-
-      totalPoints: pointsResult.rows[0].total,
-
-      transactions: transactionsResult.rows[0].count
-
+      users: Number(users.rows[0].count),
+      companies: Number(companies.rows[0].count),
+      points: Number(points.rows[0].total),
+      transactions: Number(transactions.rows[0].count)
     });
 
   } catch (error) {
-
-    console.error(error);
-
     res.status(500).json({
-      error: "Database error"
+      error: error.message
     });
-
   }
-
 });
 
 // =========================
 // AdGem Postback
 // =========================
-//
-// مؤقتًا:
-// نستقبل الطلب فقط.
-//
-// لا نضيف نقاطًا هنا حتى نتحقق
-// من صيغة AdGem الرسمية وبيانات
-// التحقق من العملية.
-//
-
 app.post("/postbacks/adgem/v3", async (req, res) => {
-
   console.log("AdGem postback received:");
-
   console.log(req.body);
 
   res.json({
     success: true
   });
-
 });
 
 // =========================
 // 404
 // =========================
-
 app.use((req, res) => {
-
   res.status(404).send("Not Found");
-
 });
 
 // =========================
 // Start
 // =========================
-
 async function startServer() {
+  try {
+    await pool.query("SELECT 1");
+    console.log("PostgreSQL connected");
 
-  await initDatabase();
+    await initDatabase();
 
-  app.listen(PORT, () => {
+    app.listen(PORT, () => {
+      console.log(`Reward App running on port ${PORT}`);
+    });
 
-    console.log(
-      `Reward App running on port ${PORT}`
-    );
-
-  });
-
+  } catch (error) {
+    console.error("Database connection failed:");
+    console.error(error);
+    process.exit(1);
+  }
 }
 
 startServer();
