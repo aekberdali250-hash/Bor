@@ -109,7 +109,9 @@ app.get("/api/companies", async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
@@ -132,7 +134,9 @@ app.post("/api/companies", async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
@@ -147,7 +151,9 @@ app.get("/api/users", async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
@@ -172,7 +178,9 @@ app.post("/api/users", async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
@@ -191,7 +199,9 @@ app.get("/api/users/:id", async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
@@ -275,81 +285,6 @@ app.post("/api/rewards", async (req, res) => {
   }
 });
 
-// ==================================================
-// TEMPORARY TEST ROUTE
-// DELETE THIS ROUTE AFTER TESTING
-// ==================================================
-app.get("/test-reward/:userId/:points", async (req, res) => {
-  const client = await pool.connect();
-
-  try {
-    const userId = Number(req.params.userId);
-    const points = Number(req.params.points);
-
-    if (!Number.isInteger(userId) || !Number.isInteger(points) || points <= 0) {
-      return res.status(400).json({
-        error: "Invalid userId or points"
-      });
-    }
-
-    await client.query("BEGIN");
-
-    const user = await client.query(
-      "SELECT * FROM users WHERE id = $1 FOR UPDATE",
-      [userId]
-    );
-
-    if (user.rows.length === 0) {
-      await client.query("ROLLBACK");
-
-      return res.status(404).json({
-        error: "user not found"
-      });
-    }
-
-    const transaction = await client.query(
-      `INSERT INTO transactions
-       (user_id, points, description)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [
-        userId,
-        points,
-        "Temporary test reward"
-      ]
-    );
-
-    const updatedUser = await client.query(
-      `UPDATE users
-       SET points = points + $1
-       WHERE id = $2
-       RETURNING *`,
-      [points, userId]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({
-      success: true,
-      message: "Temporary test reward added",
-      transaction: transaction.rows[0],
-      user: updatedUser.rows[0]
-    });
-
-  } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch {}
-
-    res.status(500).json({
-      error: error.message
-    });
-
-  } finally {
-    client.release();
-  }
-});
-
 // =========================
 // Transactions
 // =========================
@@ -365,7 +300,9 @@ app.get("/api/users/:id/transactions", async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
@@ -379,7 +316,9 @@ app.get("/api/transactions", async (req, res) => {
 
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
@@ -443,6 +382,7 @@ app.use((req, res) => {
 async function startServer() {
   try {
     await pool.query("SELECT 1");
+
     console.log("PostgreSQL connected");
 
     await initDatabase();
