@@ -1,10 +1,13 @@
 const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
+const session = require("express-session");
 const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 10000;
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+app.set("trust proxy", 1);
 
 /* =========================
    PostgreSQL
@@ -39,10 +42,45 @@ app.use(
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================
-   Static files
+   Admin session security
+   Set ADMIN_PASSWORD and SESSION_SECRET in Render.
 ========================= */
 
-app.use(express.static(__dirname));
+app.use(session({
+  name: "bor_admin_session",
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 8 * 60 * 60 * 1000
+  }
+}));
+
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.isAdmin === true) return next();
+  if (req.path === "/admin" || req.path === "/admin.html") {
+    return res.redirect("/admin/login");
+  }
+  return res.status(401).json({ success: false, error: "Admin login required" });
+}
+
+function requireSameOrigin(req, res, next) {
+  const origin = req.get("origin");
+  const host = req.get("host");
+  if (origin && host) {
+    try {
+      if (new URL(origin).host !== host) {
+        return res.status(403).json({ success: false, error: "Invalid origin" });
+      }
+    } catch (_) {
+      return res.status(403).json({ success: false, error: "Invalid origin" });
+    }
+  }
+  next();
+}
 
 /* =========================
    Database initialization
@@ -111,11 +149,44 @@ app.get("/", (req, res) => {
    Admin
 ========================= */
 
-app.get("/admin", (req, res) => {
+app.get("/admin/login", (req, res) => {
+  res.sendFile(path.join(__dirname, "admin-login.html"));
+});
+
+app.post("/api/admin/login", requireSameOrigin, (req, res, next) => {
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+  if (!configuredPassword) {
+    return res.status(503).json({ success: false, error: "Admin login is not configured. Set ADMIN_PASSWORD in Render." });
+  }
+  const a = Buffer.from(password);
+  const b = Buffer.from(configuredPassword);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ success: false, error: "كلمة المرور غير صحيحة." });
+  }
+  req.session.regenerate((err) => {
+    if (err) return next(err);
+    req.session.isAdmin = true;
+    req.session.save((saveErr) => {
+      if (saveErr) return next(saveErr);
+      res.json({ success: true });
+    });
+  });
+});
+
+app.post("/api/admin/logout", requireAdmin, requireSameOrigin, (req, res, next) => {
+  req.session.destroy((err) => {
+    if (err) return next(err);
+    res.clearCookie("bor_admin_session", { httpOnly: true, sameSite: "strict", secure: process.env.NODE_ENV === "production" });
+    res.json({ success: true });
+  });
+});
+
+app.get("/admin", requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, "admin.html"));
 });
 
-app.get("/admin.html", (req, res) => {
+app.get("/admin.html", requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, "admin.html"));
 });
 
@@ -162,11 +233,12 @@ app.get("/api/companies", async (req, res) => {
   }
 });
 
-app.post("/api/companies", async (req, res) => {
+app.post("/api/companies", requireAdmin, requireSameOrigin, async (req, res) => {
   try {
     const { name, type, status } = req.body;
+    const cleanName = typeof name === "string" ? name.trim() : "";
 
-    if (!name) {
+    if (!cleanName) {
       return res.status(400).json({
         success: false,
         error: "Company name is required"
@@ -178,8 +250,8 @@ app.post("/api/companies", async (req, res) => {
        VALUES ($1, $2, $3)
        RETURNING *`,
       [
-        name,
-        type || "Offerwall",
+        cleanName,
+        typeof type === "string" && type.trim() ? type.trim() : "Offerwall",
         status !== false
       ]
     );
@@ -202,7 +274,7 @@ app.post("/api/companies", async (req, res) => {
    Users
 ========================= */
 
-app.get("/api/users", async (req, res) => {
+app.get("/api/users", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT * FROM users ORDER BY id DESC`
@@ -222,8 +294,10 @@ app.get("/api/users", async (req, res) => {
 app.post("/api/users", async (req, res) => {
   try {
     const { name, email } = req.body;
+    const cleanName = typeof name === "string" ? name.trim().slice(0, 100) : "";
+    const cleanEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
 
-    if (!email) {
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return res.status(400).json({
         success: false,
         error: "Email is required"
@@ -235,8 +309,8 @@ app.post("/api/users", async (req, res) => {
        VALUES ($1, $2, 0)
        RETURNING *`,
       [
-        name || "",
-        email
+        cleanName,
+        cleanEmail
       ]
     );
 
@@ -265,7 +339,7 @@ app.post("/api/users", async (req, res) => {
    Single user
 ========================= */
 
-app.get("/api/users/:id", async (req, res) => {
+app.get("/api/users/:id", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT * FROM users WHERE id = $1`,
@@ -294,10 +368,11 @@ app.get("/api/users/:id", async (req, res) => {
    Manual reward API
 ========================= */
 
-app.post("/api/rewards", async (req, res) => {
-  const client = await pool.connect();
+app.post("/api/rewards", requireAdmin, requireSameOrigin, async (req, res) => {
+  let client;
 
   try {
+    client = await pool.connect();
     const {
       user_id,
       company_id,
@@ -385,7 +460,9 @@ app.post("/api/rewards", async (req, res) => {
     });
 
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (client) {
+      try { await client.query("ROLLBACK"); } catch (_) {}
+    }
 
     console.error("Reward error:", error);
 
@@ -394,7 +471,7 @@ app.post("/api/rewards", async (req, res) => {
       error: "Failed to add reward"
     });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
@@ -402,7 +479,7 @@ app.post("/api/rewards", async (req, res) => {
    User transactions
 ========================= */
 
-app.get("/api/users/:id/transactions", async (req, res) => {
+app.get("/api/users/:id/transactions", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT *
@@ -427,7 +504,7 @@ app.get("/api/users/:id/transactions", async (req, res) => {
    All transactions
 ========================= */
 
-app.get("/api/transactions", async (req, res) => {
+app.get("/api/transactions", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT *
@@ -450,7 +527,7 @@ app.get("/api/transactions", async (req, res) => {
    Statistics
 ========================= */
 
-app.get("/api/stats", async (req, res) => {
+app.get("/api/stats", requireAdmin, async (req, res) => {
   try {
     const users = await pool.query(
       `SELECT COUNT(*)::integer AS count FROM users`
@@ -469,7 +546,8 @@ app.get("/api/stats", async (req, res) => {
     res.json({
       users: users.rows[0].count,
       companies: companies.rows[0].count,
-      rewards: rewards.rows[0].points
+      rewards: rewards.rows[0].points,
+      totalPoints: rewards.rows[0].points
     });
 
   } catch (error) {
@@ -834,6 +912,8 @@ app.use((req, res) => {
 ========================= */
 
 async function startServer() {
+  if (!process.env.ADMIN_PASSWORD) console.warn("WARNING: ADMIN_PASSWORD is not set; admin login will remain disabled.");
+  if (!process.env.SESSION_SECRET) console.warn("WARNING: SESSION_SECRET is not set; sessions will reset after restart.");
   try {
     await initDatabase();
 
