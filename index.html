@@ -1,21 +1,401 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1d4ed8">
 <title>Bor Reward App</title>
+
 <style>
-:root{font-family:Arial,sans-serif;color:#172033;background:#f3f6fc}*{box-sizing:border-box}body{margin:0}header{background:linear-gradient(135deg,#1d4ed8,#0f766e);color:white;text-align:center;padding:28px 16px}header h1{margin:0 0 8px}main{max-width:850px;margin:22px auto;padding:0 14px}.card{background:#fff;padding:20px;margin:14px 0;border-radius:16px;box-shadow:0 5px 22px #0f172a12}input{display:block;width:100%;padding:13px;margin:10px 0;border:1px solid #dbe2ef;border-radius:10px;font-size:16px}button{padding:12px 18px;border:0;border-radius:10px;background:#2563eb;color:white;font-size:16px;cursor:pointer}button:disabled{opacity:.6}.company{padding:12px;border:1px solid #e5eaf3;border-radius:10px;margin:8px 0}.muted{color:#64748b}a{color:#2563eb}
-</style></head>
-<body><header><h1>🎁 Bor Reward App</h1><p>منصة المهام والمكافآت</p></header>
+:root {
+  font-family: Arial, Tahoma, sans-serif;
+  color: #172033;
+  background: #f3f6fc;
+}
+* { box-sizing: border-box; }
+body { margin: 0; line-height: 1.7; }
+
+header {
+  background: linear-gradient(135deg, #1d4ed8, #0f766e);
+  color: white;
+  text-align: center;
+  padding: 28px 16px;
+}
+header h1 { margin: 0 0 8px; }
+
+main {
+  max-width: 850px;
+  margin: 22px auto;
+  padding: 0 14px;
+}
+.card {
+  background: white;
+  padding: 20px;
+  margin: 14px 0;
+  border-radius: 16px;
+  box-shadow: 0 5px 22px #0f172a12;
+}
+h2 { margin-top: 0; }
+
+input {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  margin: 10px 0;
+  border: 1px solid #dbe2ef;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+button, .button {
+  display: inline-block;
+  padding: 12px 18px;
+  margin: 4px 0;
+  border: 0;
+  border-radius: 10px;
+  background: #2563eb;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+}
+button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.green { background: #0f766e; }
+.gray { background: #475569; }
+
+.company {
+  padding: 14px;
+  border: 1px solid #e5eaf3;
+  border-radius: 12px;
+  margin: 10px 0;
+}
+.company h3 { margin: 0 0 5px; }
+.company p { margin: 4px 0 10px; }
+
+.muted { color: #64748b; }
+.status { overflow-wrap: anywhere; }
+.notice {
+  padding: 12px;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 14px;
+}
+footer {
+  text-align: center;
+  color: #64748b;
+  padding: 15px;
+}
+a { color: #2563eb; }
+[hidden] { display: none !important; }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🎁 Bor Reward App</h1>
+  <p>منصة المهام والمكافآت</p>
+</header>
+
 <main>
-<section class="card"><h2>إنشاء حساب</h2><p class="muted">أدخل اسمك وبريدك الإلكتروني لإنشاء حساب تجريبي على المنصة.</p>
-<form id="registerForm"><input id="name" maxlength="100" placeholder="الاسم" autocomplete="name" required><input id="email" type="email" placeholder="البريد الإلكتروني" autocomplete="email" required><button id="registerButton" type="submit">إنشاء الحساب</button></form><p id="msg" role="status"></p></section>
-<section class="card"><h2>الشركات المتاحة</h2><div id="companies">جارٍ التحميل...</div></section>
-<section class="card"><a href="/admin">⚙️ لوحة الإدارة</a></section>
+
+<section class="card">
+  <h2>إنشاء حساب</h2>
+  <p class="muted">
+    أدخل اسمك وبريدك الإلكتروني لإنشاء حساب على المنصة.
+  </p>
+
+  <form id="registerForm">
+    <input
+      id="name"
+      type="text"
+      maxlength="100"
+      placeholder="الاسم"
+      autocomplete="name"
+      required
+    >
+
+    <input
+      id="email"
+      type="email"
+      maxlength="254"
+      placeholder="البريد الإلكتروني"
+      autocomplete="email"
+      required
+    >
+
+    <button id="registerButton" type="submit">
+      إنشاء الحساب
+    </button>
+  </form>
+
+  <p id="msg" class="status" role="status" aria-live="polite"></p>
+
+  <div id="accountPanel" hidden>
+    <p class="notice">
+      رقم حسابك: <strong id="accountId">—</strong>
+    </p>
+
+    <button id="openAdgemButton" class="green" type="button">
+      🎯 فتح عروض AdGem
+    </button>
+
+    <button id="forgetAccountButton" class="gray" type="button">
+      إزالة الحساب المحفوظ من هذا الجهاز
+    </button>
+
+    <p class="muted">
+      إزالة الحساب المحفوظ لا تحذف حسابك من الخادم.
+    </p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>الشركات المتاحة</h2>
+  <p class="muted">
+    تظهر هنا الشركات التي يوفرها الخادم.
+  </p>
+  <div id="companies">جارٍ تحميل الشركات...</div>
+</section>
+
+<section class="card">
+  <h2>معلومات مهمة</h2>
+  <p class="notice">
+    ظهور زر AdGem لا يعني أن الموافقة قد تمت أو أن المكافآت تعمل.
+    يجب التأكد من موافقة AdGem وصحة إعدادات الربط واختبار تسجيل
+    المكافآت من الخادم قبل إطلاق التطبيق للمستخدمين.
+  </p>
+
+  <a href="/admin">⚙️ لوحة الإدارة</a>
+</section>
+
 </main>
+
+<footer>
+  © <span id="year"></span> Bor Reward App
+</footer>
+
 <script>
-const $=id=>document.getElementById(id);
-$('registerForm').addEventListener('submit',async e=>{e.preventDefault();const button=$('registerButton');button.disabled=true;$('msg').textContent='جارٍ إنشاء الحساب...';try{const r=await fetch('/api/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('name').value.trim(),email:$('email').value.trim()})});const d=await r.json();if(!r.ok)throw new Error(d.error||'تعذر إنشاء الحساب');$('msg').textContent='تم إنشاء الحساب بنجاح. رقم حسابك: '+(d.user?.id??'—');$('registerForm').reset();}catch(err){$('msg').textContent=err.message||'حدث خطأ في الاتصال.';}finally{button.disabled=false;}});
-async function loadCompanies(){const box=$('companies');try{const r=await fetch('/api/companies');if(!r.ok)throw new Error();const data=await r.json();box.replaceChildren();if(!Array.isArray(data)||!data.length){box.textContent='لا توجد شركات متاحة حاليًا.';return;}for(const c of data){const item=document.createElement('div');item.className='company';const title=document.createElement('strong');title.textContent='🏢 '+(c.name||'شركة');const details=document.createElement('p');details.className='muted';details.textContent=(c.type||'Offerwall')+' — '+(c.status?'نشط':'متوقف');item.append(title,details);box.append(item);}}catch(_){box.textContent='تعذر تحميل الشركات. حاول تحديث الصفحة.';}}
+'use strict';
+
+/*
+  تأكد من أن 33787 هو App ID الصحيح من لوحة AdGem.
+  حفظ رقم الحساب في localStorage ليس نظام مصادقة آمنًا.
+*/
+const ADGEM_APP_ID = '33787';
+const USER_KEY = 'borUserId';
+
+const $ = id => document.getElementById(id);
+
+$('year').textContent = new Date().getFullYear();
+
+function showMessage(message, error = false) {
+  $('msg').textContent = message;
+  $('msg').style.color = error ? '#b91c1c' : '#166534';
+}
+
+function getSavedUserId() {
+  try {
+    return localStorage.getItem(USER_KEY);
+  } catch (_) {
+    return null;
+  }
+}
+
+function showAccount(userId) {
+  if (userId === null || userId === undefined ||
+      String(userId).trim() === '') {
+    $('accountPanel').hidden = true;
+    return;
+  }
+
+  $('accountId').textContent = String(userId);
+  $('accountPanel').hidden = false;
+}
+
+function openAdgemWall() {
+  const userId = getSavedUserId();
+
+  if (!userId) {
+    showMessage('أنشئ حسابًا أولًا قبل فتح العروض.', true);
+    $('registerForm').scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+    return;
+  }
+
+  if (!ADGEM_APP_ID || ADGEM_APP_ID === 'YOUR_APP_ID') {
+    showMessage('يجب إدخال App ID الصحيح من لوحة AdGem.', true);
+    return;
+  }
+
+  const url = new URL('https://api.adgem.com/v1/wall');
+  url.searchParams.set('appid', ADGEM_APP_ID);
+  url.searchParams.set('playerid', String(userId));
+
+  window.location.href = url.toString();
+}
+
+/* إنشاء حساب */
+$('registerForm').addEventListener('submit', async event => {
+  event.preventDefault();
+
+  const button = $('registerButton');
+  const name = $('name').value.trim();
+  const email = $('email').value.trim();
+
+  if (!name || !email) {
+    showMessage('يرجى إدخال الاسم والبريد الإلكتروني.', true);
+    return;
+  }
+
+  button.disabled = true;
+  showMessage('جارٍ إنشاء الحساب...');
+
+  try {
+    const response = await fetch('/api/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ name, email })
+    });
+
+    let data = {};
+
+    try {
+      data = await response.json();
+    } catch (_) {}
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || 'تعذر إنشاء الحساب. حاول مرة أخرى.'
+      );
+    }
+
+    const userId = data.user && data.user.id;
+
+    if (userId === null || userId === undefined ||
+        String(userId).trim() === '') {
+      throw new Error(
+        'لم يصل رقم الحساب من الخادم. راجع إعدادات الخادم.'
+      );
+    }
+
+    try {
+      localStorage.setItem(USER_KEY, String(userId));
+    } catch (_) {}
+
+    showAccount(userId);
+    showMessage('تم إنشاء الحساب بنجاح. رقم حسابك: ' + userId);
+    $('registerForm').reset();
+
+  } catch (error) {
+    showMessage(
+      error.message || 'حدث خطأ في الاتصال. تحقق من الإنترنت.',
+      true
+    );
+  } finally {
+    button.disabled = false;
+  }
+});
+
+/* فتح عروض AdGem */
+$('openAdgemButton').addEventListener('click', openAdgemWall);
+
+/* إزالة رقم الحساب من الجهاز فقط */
+$('forgetAccountButton').addEventListener('click', () => {
+  try {
+    localStorage.removeItem(USER_KEY);
+  } catch (_) {}
+
+  showAccount(null);
+  showMessage(
+    'تمت إزالة رقم الحساب المحفوظ من هذا الجهاز فقط.'
+  );
+});
+
+/* تحميل الشركات */
+async function loadCompanies() {
+  const box = $('companies');
+  box.textContent = 'جارٍ تحميل الشركات...';
+
+  try {
+    const response = await fetch('/api/companies', {
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error('تعذر تحميل الشركات.');
+    }
+
+    const companies = await response.json();
+    box.replaceChildren();
+
+    if (!Array.isArray(companies) || companies.length === 0) {
+      box.textContent = 'لا توجد شركات متاحة حاليًا.';
+      return;
+    }
+
+    for (const company of companies) {
+      const item = document.createElement('div');
+      item.className = 'company';
+
+      const title = document.createElement('h3');
+      title.textContent = '🏢 ' + (company.name || 'شركة');
+
+      const details = document.createElement('p');
+      details.className = 'muted';
+      details.textContent =
+        (company.type || 'Offerwall') + ' — ' +
+        (company.status ? 'نشط' : 'متوقف');
+
+      item.append(title, details);
+
+      const isAdgem = String(company.name || '')
+        .toLowerCase()
+        .includes('adgem');
+
+      if (isAdgem) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'green';
+        button.textContent = '🎯 فتح عروض AdGem';
+        button.addEventListener('click', openAdgemWall);
+
+        if (!company.status) {
+          button.disabled = true;
+          button.title = 'الشركة متوقفة حاليًا.';
+        }
+
+        item.append(button);
+      }
+
+      box.append(item);
+    }
+
+  } catch (error) {
+    box.textContent =
+      error.message || 'تعذر تحميل الشركات. حاول تحديث الصفحة.';
+  }
+}
+
+/* استعادة الحساب المحفوظ عند إعادة فتح الصفحة */
+const existingUserId = getSavedUserId();
+
+if (existingUserId) {
+  showAccount(existingUserId);
+}
+
 loadCompanies();
-</script></body></html>
+</script>
+
+</body>
+</html>
