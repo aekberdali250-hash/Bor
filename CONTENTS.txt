@@ -9,3 +9,6 @@ Bor Reward App Multilingual + Games
 - README.txt — شرح المشروع والتنبيهات
 - START-HERE-AR.txt — دليل البدء بالعربية
 - CONTENTS.txt — قائمة الملفات
+
+- ألعاب مدمجة داخل index.html: تحدي الذاكرة، سؤال يومي، وسجل نتائج محلي.
+- /games shortcut in server.js directs users to the game section.

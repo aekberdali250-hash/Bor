@@ -145,6 +145,11 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
+// Convenient direct link to the games section.
+app.get("/games", (req, res) => {
+  res.redirect(302, "/#games");
+});
+
 /* =========================
    Admin
 ========================= */
