@@ -1,49 +1,32 @@
-Bor Reward App — Multilingual Homepage Build
-===========================================
+Bor Reward App — نسخة الألعاب متعددة اللغات
+============================================
 
-What is included
-- Responsive Arabic RTL homepage with navy/gold visual design.
-- Language selector for Arabic, French, English, Spanish, and German.
-- Remembers the selected language on the same device.
-- Automatically switches page direction for Arabic (RTL) and other languages (LTR).
-- Registration form connected to the existing POST /api/users endpoint.
-- Active partner list connected to GET /api/companies.
-- AdGem offerwall link for a registered Bor user (app ID 33787), shown only when AdGem is active.
-- Clear, cautious wording: no guaranteed earnings or claims that cash withdrawals are already enabled.
-- Existing server.js, admin pages, and package.json retained from the supplied project.
+هذه حزمة تحديث لمشروع Bor الحالي، مبنية على ملفات المشروع السابقة مع إضافة ألعاب داخل الواجهة.
 
-IMPORTANT BEFORE DEPLOYMENT
-This ZIP is an update to the existing Bor project, not a standalone APK and not a replacement database.
-Do not delete the Render PostgreSQL database or create a new service just to install this homepage.
+المحتويات الأساسية:
+- index.html: الواجهة الرئيسية بخمس لغات (العربية، الفرنسية، الإنجليزية، الإسبانية، الألمانية) مع لعبة مطابقة الذاكرة، سؤال يومي، وأسجل أفضل النتائج على الجهاز.
+- server.js: خادم Express الحالي مع قاعدة PostgreSQL الحالية وواجهات المستخدمين والإدارة وAdGem.
+- admin.html و admin-login.html: صفحات الإدارة الحالية.
+- package.json: إعدادات تشغيل المشروع.
+- .env.example: أسماء متغيرات البيئة المطلوبة كمرجع فقط.
+- START-HERE-AR.txt: خطوات التحديث بالعربية.
 
-Recommended deployment method
-1. Keep the existing GitHub repository aekberdali250-hash/Bor and branch Bormain.
-2. Download and extract this ZIP on a computer or phone.
-3. Replace only index.html in the existing repository with the index.html from this ZIP.
-4. If you want to update documentation, replace README.txt too. Do not replace server.js or package.json unless you intentionally reviewed those files; this build preserves them for completeness.
-5. Commit the change to branch Bormain. If Render is connected to that branch, wait for the automatic deploy to finish.
-6. Open https://bor-1-434u.onrender.com and refresh. If an old cached page appears, reload the page or open it in a private tab.
+مهم جدًا حول الألعاب:
+- لعبة الذاكرة والتحدي اليومي يعملان داخل المتصفح.
+- النتائج وسجل اللعبة محفوظة محليًا على الجهاز نفسه فقط.
+- هذه النتائج ليست رصيدًا ماليًا، ولا تُرسل إلى الخادم، ولا تمنح مكافآت قابلة للسحب.
+- لم نضف نقاطًا مالية أو نظام ترتيب عالمي؛ يتطلب ذلك واجهات آمنة على الخادم واختبارات لمنع التلاعب.
 
-Keep these Render settings
-- DATABASE_URL: keep the existing value.
-- ADMIN_PASSWORD: keep configured and private.
-- SESSION_SECRET: keep configured and private.
-- Build command: npm install (or the current working build command).
-- Start command: npm start.
-- Do not change the AdGem postback URL or signing secret based only on this homepage update.
+التحديث الآمن:
+1. احتفظ بنسخة احتياطية من ملفات GitHub الحالية.
+2. لا تحذف قاعدة بيانات PostgreSQL ولا تغيّر DATABASE_URL.
+3. لتحديث واجهة الموقع فقط، استبدل index.html في المستودع والفرع الحالي Bormain بالملف الموجود في هذه الحزمة.
+4. لا تستبدل server.js أو إعدادات Render دون حاجة؛ بقية الملفات مضمنة لتسهيل الاحتفاظ بنسخة كاملة من المشروع.
+5. بعد نشر Render، اختبر تغيير اللغات، بدء لعبة الذاكرة، السؤال اليومي، ثم التسجيل والعروض.
+6. لا تعتبر تكامل AdGem أو السحب النقدي مختبرًا بمجرد نشر الواجهة؛ يلزم اختبار تحويل فعلي والتحقق من التوقيع والحقول حسب توثيق AdGem.
 
-Testing checklist after deployment
-1. Confirm the homepage opens on phone and desktop.
-2. Change language to French, English, Spanish, German, then Arabic; verify that selection persists after refresh.
-3. Verify that Arabic uses RTL and the other languages use LTR.
-4. Register with an email you have not used before; check duplicate-email handling with an existing email.
-5. Confirm active companies load from the server.
-6. Confirm AdGem opens only after the account is created and AdGem is active in admin.
-7. Test admin login and the existing admin functions.
-8. Do not advertise cash payouts until payout terms/methods are actually configured and tested.
+التشغيل المحلي (إذا كنت تستخدم بيئة Node.js):
+- npm install
+- npm start
 
-Important limitations
-- This update improves the public homepage and adds interface translations; it does not add secure user login, password-based accounts, account recovery, or a payout system.
-- The current prototype stores the Bor user ID in localStorage. That is not secure authentication and should be improved before public-scale launch.
-- The AdGem postback payload/signature and real reward crediting must be verified against AdGem's current integration requirements, including a successful test conversion, before treating rewards as live.
-- Availability of offers depends on partner approval, user eligibility, and country.
+تحتاج قاعدة بيانات PostgreSQL ومتغيرات البيئة المناسبة كما في إعداد Render الحالي.

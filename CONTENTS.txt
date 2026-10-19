@@ -1,10 +1,11 @@
-Complete source package contents:
-index.html
-server.js
-admin.html
-admin-login.html
-package.json
-README.txt
-START-HERE-AR.txt
-.env.example
-.gitignore
+Bor Reward App Multilingual + Games
+- index.html — واجهة متعددة اللغات وألعاب متصفح
+- server.js — خادم المشروع الحالي
+- admin.html — لوحة الإدارة
+- admin-login.html — تسجيل دخول الإدارة
+- package.json — إعدادات Node.js
+- .env.example — مثال أسماء الإعدادات
+- .gitignore — استثناءات الملفات
+- README.txt — شرح المشروع والتنبيهات
+- START-HERE-AR.txt — دليل البدء بالعربية
+- CONTENTS.txt — قائمة الملفات
